@@ -71,12 +71,15 @@ import org.springframework.util.StringUtils;
 public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements SingletonBeanRegistry {
 
 	/** Cache of singleton objects: bean name --> bean instance */
+	//一级缓存,beanName和创建的bean实例
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
 
 	/** Cache of singleton factories: bean name --> ObjectFactory */
+	//二级缓存，和三级缓存互斥，beanName和创建bean的工厂
 	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
 
 	/** Cache of early singleton objects: bean name --> bean instance */
+	//三级缓存，和二级缓存互斥，保存的是创建bean时防止循环引用造成的不停死循环，这里存了那些创建了一半的bean，比如A依赖B，B依赖A，那么创建A时，用到了B，会将A扔到这个里面，然后去创建B，接着发现依赖A,此时就去这个里面找
 	private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
 
 	/** Set of registered singletons, containing the bean names in registration order */
@@ -104,6 +107,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	private final Map<String, Set<String>> containedBeanMap = new ConcurrentHashMap<>(16);
 
 	/** Map between dependent bean names: bean name --> Set of dependent bean names */
+	//依赖的bean
 	private final Map<String, Set<String>> dependentBeanMap = new ConcurrentHashMap<>(64);
 
 	/** Map between depending bean names: bean name --> Set of bean names for the bean's dependencies */
@@ -185,9 +189,13 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		// 如果存在则代表 spring正在创建这个beanName的实例，将走if逻辑
 
 		// 什么情况下这里会是正在创建呢？也就是isSingletonCurrentlyInCreation(beanName)返回true
+
+		//其实这里是循环依赖的一种解决方式，注释下面
+
 		// 假设dao1和dao2相互依赖，开始:
 		// 先实例化dao1（此时是一个半残的dao1，还没给依赖的属性赋值），实例化的时候会调用getSingleton()方法，标记改dao1为正在创建
 		// 然后放入singletonFactories（二级缓存）中
+
 		// 然后开始给dao1依赖的属性赋值，找到依赖dao2对象， 然后开始实例化dao2， 同dao1的实例化过程，（半残dao2放入singletonFactories）
 		// 然后开始给dao2依赖的属性赋值，找到依赖dao1对象，然后开始又想实例化dao1， 在实例化dao1的时候又走到这里
 		// 这是和发现dao1正在实例化 也就是isSingletonCurrentlyInCreation(beanName)返回true， 而且singletonFactories中存在dao1
@@ -199,7 +207,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
 			synchronized (this.singletonObjects) {
 				singletonObject = this.earlySingletonObjects.get(beanName);
-				if (singletonObject == null && allowEarlyReference) {
+				if (singletonObject == null && allowEarlyReference) {//此时还拿不到，此时就会创建bean，其实这里也说明了二级缓存和三级缓存是互斥的
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
 						singletonObject = singletonFactory.getObject(); // 这个方法比较复杂， 他会根据情况返回的是实例还是实例的代理对象
@@ -236,12 +244,14 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				if (logger.isDebugEnabled()) {
 					logger.debug("Creating shared instance of singleton bean '" + beanName + "'");
 				}
-				// 这行代码将beanName放入一个叫this.inCreationCheckExclusions 的List中
+				// 这行代码将beanName放入一个叫this.inCreationCheckExclusions 的List中（应该是放在singletonsCurrentlyInCreation中，但是这两个是一起出现，一起判断的）
 				// 如果放入成功了则代表spring已经标记这个beanName为: 我要开始正式创建这个实例了
 				// 如果失败了 将会抛出异常终止创建实例，
 				// 这个this.inCreationCheckExclusions在上面的getSingle中将会用与判断这个beanName的实例是否正在创建
+				//记录加载状态
 				beforeSingletonCreation(beanName);
 
+				//实例化bean成功标志
 				boolean newSingleton = false;
 				boolean recordSuppressedExceptions = (this.suppressedExceptions == null);
 				if (recordSuppressedExceptions) {
@@ -249,6 +259,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				}
 				try {
 					// 创建bean对象， 在这里面执行了BeanPostProcessor的逻辑
+					//实例化bean
 					singletonObject = singletonFactory.getObject();
 					newSingleton = true;
 				}
@@ -272,10 +283,10 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 					if (recordSuppressedExceptions) {
 						this.suppressedExceptions = null;
 					}
-					afterSingletonCreation(beanName);
+					afterSingletonCreation(beanName);//这一步跟inCreationCheckExclusions方法其实是一个道理，判断存在的同时从singletonsCurrentlyInCreation中去除，表示我现在已经创建完了这个bean
 				}
 				if (newSingleton) {
-					addSingleton(beanName, singletonObject);
+					addSingleton(beanName, singletonObject);//删除加载bean过程中的各种辅助状态
 				}
 			}
 			return singletonObject;
@@ -354,6 +365,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * (within the entire factory).
 	 * @param beanName the name of the bean
 	 */
+	//当前bean是否正在创建
 	public boolean isSingletonCurrentlyInCreation(String beanName) {
 		return this.singletonsCurrentlyInCreation.contains(beanName);
 	}
