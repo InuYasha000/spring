@@ -4,7 +4,6 @@ import com.st.dao.Dao;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-
 @Configuration
 @ComponentScan(value = "com.st.dao")
 //ImportSelect 实现这个接口返回类的全限定名的字符串数组，使用Import引入 spring将会把这些类生成bd对象放入工厂的map中去
