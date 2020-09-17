@@ -72,14 +72,21 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 
 	/** Cache of singleton objects: bean name --> bean instance */
 	//一级缓存,beanName和创建的bean实例
+	//存放的是单例 bean 的映射。
+	//对应关系为 bean name --> bean instance
 	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
 
 	/** Cache of singleton factories: bean name --> ObjectFactory */
 	//二级缓存，和三级缓存互斥，beanName和创建bean的工厂
+	//存放的是 ObjectFactory，可以理解为创建单例 bean 的 factory 。
 	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
 
 	/** Cache of early singleton objects: bean name --> bean instance */
 	//三级缓存，和二级缓存互斥，保存的是创建bean时防止循环引用造成的不停死循环，这里存了那些创建了一半的bean，比如A依赖B，B依赖A，那么创建A时，用到了B，会将A扔到这个里面，然后去创建B，接着发现依赖A,此时就去这个里面找
+	//存放的是早期的 bean，对应关系也是 bean name --> bean instance。
+	//跟singletonFactories区别在于这个存放的是不完整的bean
+	//也就是bean 在创建过程中就已经加入到 earlySingletonObjects 中了。所以当在 bean 的创建过程中，就可以通过 getBean() 方法获取。
+	//这个是循环依赖的关键
 	private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
 
 	/** Set of registered singletons, containing the bean names in registration order */
@@ -107,10 +114,11 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	private final Map<String, Set<String>> containedBeanMap = new ConcurrentHashMap<>(16);
 
 	/** Map between dependent bean names: bean name --> Set of dependent bean names */
-	//依赖的bean
+	//依赖的bean  beanName - > 依赖 beanName
 	private final Map<String, Set<String>> dependentBeanMap = new ConcurrentHashMap<>(64);
 
 	/** Map between depending bean names: bean name --> Set of bean names for the bean's dependencies */
+	//依赖 beanName - > beanName 的集合
 	private final Map<String, Set<String>> dependenciesForBeanMap = new ConcurrentHashMap<>(64);
 
 
@@ -210,6 +218,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				if (singletonObject == null && allowEarlyReference) {//此时还拿不到，此时就会创建bean，其实这里也说明了二级缓存和三级缓存是互斥的
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
+						//获取bean
 						singletonObject = singletonFactory.getObject(); // 这个方法比较复杂， 他会根据情况返回的是实例还是实例的代理对象
 						// 删除二级缓存中的singletonObject， 将singletonObject添加到三级缓存当中，
 						// 这么做是为了后续如果还有其他依赖直接从三级缓存中获取

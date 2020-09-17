@@ -458,6 +458,17 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * populates the bean instance, applies post-processors, etc.
 	 * @see #doCreateBean
 	 */
+
+	/**
+	 * 根据给定的 BeanDefinition 和 args 实例化一个 Bean 对象
+	 * 如果该 BeanDefinition 存在父类，则该 BeanDefinition 已经合并了父类的属性
+	 * 所有 Bean 实例的创建，都会委托给该方法实现
+	 * @param beanName the name of the bean  bean 的名字
+	 * @param mbd the merged bean definition for the bean   已经合并了父类属性的（如果有的话）BeanDefinition 对象。
+	 * @param args explicit arguments to use for constructor or factory method invocation  用于构造函数或者工厂方法创建 Bean 实例对象的参数。
+	 * @return
+	 * @throws BeanCreationException
+	 */
 	@Override
 	protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable Object[] args)
 			throws BeanCreationException {
@@ -494,11 +505,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance
 			// 此时bean还没被实例化
 			// 如果执行完这个处理器方法之后 返回bean不为空将直接返回bean
+			// 实例化的前置处理
 
 			// 这是在bean实例化过程中 第一次调用spring的BeanPostProcessors后置处理器:
 			// InstantiationAwareBeanPostProcessor 的 PostProcessBeforeInstantiation如果返回了一个实例将直接执行BeanPostProcessor的postProcessAfterInitialization
 
-			//当经过前置处理后返回的结果如果不为空，那么会直接略过后续 bean 的创建而直接返回结果,我们熟知的 AOP 功能就是基于这里的判断的
+			//当经过前置处理后返回的结果如果不为空，那么会直接略过后续 bean 的创建而直接返回结果,
+			// 给 BeanPostProcessors 一个机会用来返回一个代理类而不是真正的类实例，我们熟知的 AOP 功能就是基于这里的判断的
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) { // 如果返回了实例将直接返回，后续的实例化步骤不再执行
 				return bean;
@@ -1093,7 +1106,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					// 此时将直接得到这个对象，并且这个对象中没有了依赖，就一个对象（不太清楚）
 
 					//经过这个方法后， bean 可能已经不是我们认为的 bean ，或许成为了一个经过处理的代理 bean ，可能是通过cglib生成的，也可以是通过其他技术生成的
-					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);//这个叫做实例化前的后置处理（但我不明白这里并没有实例化操作）
+					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);//这个叫做 实例化前 的前置处理
 					if (bean != null) {
 						// 如果在postProcessBeforeInstantiation中返回了任意bean对象，
 						// 将只会在这里执行 postProcessAfterInitialization方法， 注意是BeanPostProcessor的postProcessAfterInitialization方法

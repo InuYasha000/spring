@@ -99,24 +99,32 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 		if (factory.isSingleton() && containsSingleton(beanName)) {
 			synchronized (getSingletonMutex()) {
+				//从缓存拿
 				Object object = this.factoryBeanObjectCache.get(beanName);
 				if (object == null) {
+					// 为空，则从 FactoryBean 中获取对象
 					object = doGetObjectFromFactoryBean(factory, beanName);
 					// Only post-process and store if not put there already during getObject() call above
 					// (e.g. because of circular reference processing triggered by custom getBean calls)
 					Object alreadyThere = this.factoryBeanObjectCache.get(beanName);
+					//个人觉得这个地方本身已经获取了一个bean对象，然后再去缓存判断原因在于获取期间factoryBeanObjectCache有值了。
 					if (alreadyThere != null) {
 						object = alreadyThere;
 					}
 					else {
 						if (shouldPostProcess) {
+							//当前bean正在创建，直接返回，而不是储存，前面说过当前bean不是完整的，此时表示bean正在创建？？？？
 							if (isSingletonCurrentlyInCreation(beanName)) {
 								// Temporarily return non-post-processed object, not storing it yet..
 								return object;
 							}
+							// 单例 Bean 的前置处理
+							//用于添加标志，当前 bean 正处于创建中
 							beforeSingletonCreation(beanName);
 							try {
 								//调用后处理器
+								// 对从 FactoryBean 获取的对象进行后处理
+								// 生成的对象将暴露给 bean 引用
 								object = postProcessObjectFromFactoryBean(object, beanName);
 							}
 							catch (Throwable ex) {
@@ -124,6 +132,8 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 										"Post-processing of FactoryBean's singleton object failed", ex);
 							}
 							finally {
+								// 单例 Bean 的后置处理
+								//用于移除标记，当前 Bean 不处于创建中
 								afterSingletonCreation(beanName);
 							}
 						}
@@ -157,11 +167,13 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @throws BeanCreationException if FactoryBean object creation failed
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
+	//从 FactoryBean 获取对象，其实内部就是调用 FactoryBean#getObject() 方法
 	private Object doGetObjectFromFactoryBean(final FactoryBean<?> factory, final String beanName)
 			throws BeanCreationException {
 
 		Object object;
 		try {
+			//权限验证
 			if (System.getSecurityManager() != null) {
 				AccessControlContext acc = getAccessControlContext();
 				try {
