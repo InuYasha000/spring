@@ -1055,20 +1055,25 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	public Object resolveDependency(DependencyDescriptor descriptor, @Nullable String requestingBeanName,
 			@Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException {
 
+		// 初始化参数名称发现器，该方法并不会在这个时候尝试检索参数名称
 		descriptor.initParameterNameDiscovery(getParameterNameDiscoverer());
+		// 依赖类型为 Optional 类型
 		if (Optional.class == descriptor.getDependencyType()) {
 			return createOptionalDependency(descriptor, requestingBeanName);
 		}
-		//ObjectFactory 类注入的特殊处理
+		//ObjectFactory ,ObjectProvider 类注入的特殊处理
 		else if (ObjectFactory.class == descriptor.getDependencyType() ||
 				ObjectProvider.class == descriptor.getDependencyType()) {
 			return new DependencyObjectProvider(descriptor, requestingBeanName);
 		}
+		//javaxInjectProviderClass 类注入的特殊处理
 		else if (javaxInjectProviderClass == descriptor.getDependencyType()) {
 			//javaxinjectProviderClass 类注入的特殊处理
 			return new Jsr330ProviderFactory().createDependencyProvider(descriptor, requestingBeanName);
 		}
 		else {
+			// 为实际依赖关系目标的延迟解析构建代理
+			// 默认实现返回 null
 			Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(
 					descriptor, requestingBeanName);
 			if (result == null) {
@@ -1083,8 +1088,13 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	public Object doResolveDependency(DependencyDescriptor descriptor, @Nullable String beanName,
 			@Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException {
 		// 处理循环依赖， 属性的循环依赖会调用到这里
+
+		// 注入点
 		InjectionPoint previousInjectionPoint = ConstructorResolver.setCurrentInjectionPoint(descriptor);
 		try {
+			// 针对给定的工厂给定一个快捷实现的方式，例如考虑一些预先解析的信息
+			// 在进入所有bean的常规类型匹配算法之前，解析算法将首先尝试通过此方法解析快捷方式。
+			// 子类可以覆盖此方法
 			Object shortcut = descriptor.resolveShortcut(this);
 			if (shortcut != null) {
 				return shortcut;

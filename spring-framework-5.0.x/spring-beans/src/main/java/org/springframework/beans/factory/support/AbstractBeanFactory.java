@@ -246,6 +246,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @return
 	 * @throws BeansException
 	 */
+	//Spring 解决 singleton bean 的核心就在于提前曝光 bean
+
 	//1:从缓存中获取单例 Bean ，以及对 Bean 的实例中获取对象。
 	//2:从单例缓存中拿到 Bean后，分析 Bean 加载，以及 Bean 的依赖处理。
 	//3:Bean 已经加载了，依赖也处理完毕了，分析各个作用域的 Bean 初始化过程

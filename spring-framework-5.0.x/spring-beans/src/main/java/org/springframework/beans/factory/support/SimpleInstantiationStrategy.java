@@ -60,23 +60,30 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 	@Override
 	public Object instantiate(RootBeanDefinition bd, @Nullable String beanName, BeanFactory owner) {
 		// Don't override the class with CGLIB if no overrides.
+
+		// 没有覆盖，直接使用反射实例化即可
 		if (!bd.hasMethodOverrides()) {
 			Constructor<?> constructorToUse;
 			synchronized (bd.constructorArgumentLock) {
+				// 获得构造方法 constructorToUse
+				// 缓存
 				constructorToUse = (Constructor<?>) bd.resolvedConstructorOrFactoryMethod;
 				if (constructorToUse == null) {
 					final Class<?> clazz = bd.getBeanClass();
+					// 如果是接口，抛出 BeanInstantiationException 异常
 					if (clazz.isInterface()) {
 						throw new BeanInstantiationException(clazz, "Specified class is an interface");
 					}
 					try {
-						if (System.getSecurityManager() != null) {
+						// 从 clazz 中，获得构造方法
+						if (System.getSecurityManager() != null) {// 安全模式
 							constructorToUse = AccessController.doPrivileged(
 									(PrivilegedExceptionAction<Constructor<?>>) clazz::getDeclaredConstructor);
 						}
 						else { // 获取真正的bean的构造方法
 							constructorToUse = clazz.getDeclaredConstructor();
 						}
+						// 标记 resolvedConstructorOrFactoryMethod 属性
 						bd.resolvedConstructorOrFactoryMethod = constructorToUse;
 					}
 					catch (Throwable ex) {
@@ -84,11 +91,13 @@ public class SimpleInstantiationStrategy implements InstantiationStrategy {
 					}
 				}
 			}
-			// 通过获得的构造方法 生成实例
+			// 通过获得的构造方法 生成实例，其实就是执行了 constructorToUse.newInstance(args)
 			return BeanUtils.instantiateClass(constructorToUse);
 		}
 		else {
 			// Must generate CGLIB subclass.
+
+			// 生成 CGLIB 创建的子类对象
 			return instantiateWithMethodInjection(bd, beanName, owner);
 		}
 	}

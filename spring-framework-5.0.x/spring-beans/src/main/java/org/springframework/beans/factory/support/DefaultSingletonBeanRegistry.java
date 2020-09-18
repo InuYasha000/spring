@@ -222,6 +222,9 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 						singletonObject = singletonFactory.getObject(); // 这个方法比较复杂， 他会根据情况返回的是实例还是实例的代理对象
 						// 删除二级缓存中的singletonObject， 将singletonObject添加到三级缓存当中，
 						// 这么做是为了后续如果还有其他依赖直接从三级缓存中获取
+
+						//三级缓存升级到二级缓存了
+						// 二级缓存存在的意义，就是缓存三级缓存中的 ObjectFactory 的 #getObject() 方法的执行结果，提早曝光的单例 Bean 对象。
 						this.earlySingletonObjects.put(beanName, singletonObject);
 						this.singletonFactories.remove(beanName);
 					}
