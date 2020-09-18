@@ -298,9 +298,10 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	@Override
 	public Object postProcessAfterInitialization(@Nullable Object bean, String beanName) throws BeansException {
 		if (bean != null) {
+			//根据给定的 bean的class和name构建出一个key，格式∶beanClassName_beanName
 			Object cacheKey = getCacheKey(bean.getClass(), beanName);
 			if (this.earlyProxyReferences.remove(cacheKey) != bean) {
-				// 生成代理对象， 此时bean对象以及初始化好了，属性依赖也完成了，此时开始生成代理对象
+				// 生成代理对象， 此时bean对象已经初始化好了，属性依赖也完成了，此时开始生成代理对象
 				return wrapIfNecessary(bean, beanName, cacheKey);
 			}
 		}
@@ -337,23 +338,31 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	 * @return a proxy wrapping the bean, or the raw bean instance as-is
 	 */
 	protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) {
+		//是否已经处理过
 		if (StringUtils.hasLength(beanName) && this.targetSourcedBeans.contains(beanName)) {
 			return bean;
 		}
+		//无须增强
 		if (Boolean.FALSE.equals(this.advisedBeans.get(cacheKey))) {
 			return bean;
 		}
+		//给定的bean类是否代表一个基础设施类，基础设施类不应代理，或者配置了指定bean不需要自动代理
 		if (isInfrastructureClass(bean.getClass()) || shouldSkip(bean.getClass(), beanName)) {
 			this.advisedBeans.put(cacheKey, Boolean.FALSE);
 			return bean;
 		}
 
+		//此时代表需要增强
+		//1--获取增强方法或者增强器
+
 		// Create proxy if we have advice.
 		// 解析我们配置的所有的切面类（@Aspect类），判断当前bean是否符合 我们配置的切面
 		Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
 		// 如果没有配置通知@Before， specificInterceptors将是null，将不会生成代理对象
+
 		if (specificInterceptors != DO_NOT_PROXY) { //解析之后判断bean是否需要代理，如果要则生成代理对象proxy并返回
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);
+			//2--创建代理
 			Object proxy = createProxy(
 					bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
 			this.proxyTypes.put(cacheKey, proxy.getClass());
