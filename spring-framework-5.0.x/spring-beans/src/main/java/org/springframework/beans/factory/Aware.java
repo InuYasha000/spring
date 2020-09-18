@@ -32,6 +32,8 @@ package org.springframework.beans.factory;
  * @author Juergen Hoeller
  * @since 3.1
  */
+//使用了spring Aware 你的bean将会和spring框架耦合，
+//spring aware 的目的是为了让bean获取spring容器的服务：
 public interface Aware {
 
 }

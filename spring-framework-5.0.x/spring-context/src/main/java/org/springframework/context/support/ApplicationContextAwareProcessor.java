@@ -106,6 +106,7 @@ class ApplicationContextAwareProcessor implements BeanPostProcessor {
 		return bean;
 	}
 
+	//aware接口就是让一些bean能够获得spring容器的资源，因此，在这里，实现了Aware的类都会被设置一些资源，也就是set方法，这就是aware的作用还有这个方法的作用
 	private void invokeAwareInterfaces(Object bean) {
 		// 如果我们的类实现了某个功能类，这里spring开始调用接口的方法，从而实现各种接口的功能
 		if (bean instanceof Aware) {

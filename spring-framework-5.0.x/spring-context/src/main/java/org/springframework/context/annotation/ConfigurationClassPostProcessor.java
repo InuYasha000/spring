@@ -219,6 +219,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 	 */
 	@Override
 	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) {
+		System.out.println("ConfigurationClassPostProcessor.postProcessBeanDefinitionRegistry----------");
 		// 因为实现了BeanDefinitionRegistryPostProcessor接口
 		// 在reflush的时候将会调用这个方法
 		int registryId = System.identityHashCode(registry);

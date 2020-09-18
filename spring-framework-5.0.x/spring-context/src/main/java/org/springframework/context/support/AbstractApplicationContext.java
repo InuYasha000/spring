@@ -513,23 +513,36 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		return this.applicationListeners;
 	}
 
+	//ApplicationContext是对BeanFactory的功能上的扩展，不但包含了BeanFactory的全部功能更在其基础上添加了大量的扩展应用
 	@Override
 	public void refresh() throws BeansException, IllegalStateException {
 		synchronized (this.startupShutdownMonitor) {
 			// Prepare this context for refreshing.
-			prepareRefresh();
+			//准备刷新的上下文环境
+
+			//<1> 初始化前的准备工作，例如对系统属性或者环境变量进行准备及验证。
+ 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
 
 			// 返回DefaultListtableBeanfactory
+
+			//初始化beanfactory，进行xml文件读取
+
+			//<2> 初始化 BeanFactory，并进行 XML文件读取,复用 BeanFactory 中的配置文件读取解析及其他功能
+			//这个方法之后ApplicationContext 就已经拥有了BeanFactory的全部功能。ApplicationContext本身就是对BeanFactory的功能上的扩展
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
-			// 准备工厂
+			// 准备工厂，对beanfactory各种填充
+
+			//<3> 对 BeanFactory 进行各种功能填充。 @Qualifier与@Autowired这两个注解是在这一步骤中增加的支持。
 			prepareBeanFactory(beanFactory);
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
+
+				//<4> 实现 postProcess-BeanFactory来方便程序员在业务上做进一步扩展,拓展方法
 				postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
@@ -541,6 +554,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// 执行完这一行代码，spring就完成了所有的类 在 beanFactory中的bd注册（注意此时bean对象还没有产生）
 
 				// 这里要绝对注意： 我们的实现了BeanPostProcessors接口的类，将会在这个方法中直接进行bean的实例化
+
+				//<5> 激活各种beanfactory处理器
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
@@ -550,31 +565,41 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// 但是A的BeanPostProcessors的注册将在这里注册， 也就意味着，A类的bean实例化的时候，调用populateBean给属性赋值，
 				// 调用所有的BeanPostProcessors后置处理器的时候，他拿不到自身的后置置处理器（因为A的bean是先实例化然后在注册到后置处理器的数组中），
 				// 也就不能将自身的bean和beanName传递进去执行
+
+				//<6> 也就是注册能够拦截  bean创建  的bean处理器，这里只是注册，真正调用在getbean
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
-				// 不重要， 是国际化处理
+				//<7> 不重要， 是国际化处理
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
 				// Docker容器有用
+
+				//<8> 初始化应用消息广播器，放入applicationEventMulticaster的bean中
 				initApplicationEventMulticaster();
 
 				// Initialize other special beans in specific context subclasses.
 				// 空壳方法， 后续版本实现
+
+				//<9> 留给子类来初始化其他的bean
 				onRefresh();
 
 				// Check for listener beans and register them.
-				//
+				//<10> 在所有注册的bean'中查找listener bean，注册到消息广播器中
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
 				// 实例化剩下的
 				// (之前已经实例化了一部分bean，如实例了BeanPostPorcessors和BeanPostPorcessors接口的类)
 				// bean对象并执行后置处理器BeanPostProcessor的逻辑（proxy代理对象也是在这里产生的）
+
+				//<11> 初始化剩下的单实例（初始化非延迟加载单例）
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
+
+				//<12> 完成刷新过程，通知声明周期处理器lifecycleProcessor刷新过程，同时发出ContextRefreshedEvent通知别人
 				finishRefresh();
 			}
 
@@ -606,6 +631,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Prepare this context for refreshing, setting its startup date and
 	 * active flag as well as performing any initialization of property sources.
 	 */
+	//其实环境准备没有做太多操作，里面的initPropertySources和validateRequiredProperties并没有被实现，空的方法，
+	// 但这也符合spring 的开放式设计，例如你有这样的需求，需要验证某个环境变量是否有配置，这样的话，你可以通过拓展classPathXmlApplicationcContext
+	//实现initPropertysources方法来添加验证
 	protected void prepareRefresh() {
 		// Switch to active.
 		this.startupDate = System.currentTimeMillis();
@@ -654,7 +682,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #getBeanFactory()
 	 */
 	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+		//初始化BeanFractory，并进行XML.文件读取，并将得到的BeanFacotry 记录在当前实体的属性中
 		refreshBeanFactory();
+		//返回当前实体的beanFactory属性
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		if (logger.isDebugEnabled()) {
 			logger.debug("Bean factory for " + getDisplayName() + ": " + beanFactory);
@@ -683,6 +713,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this));
 
 		// 忽略这些接口
+		//因为在ApplicationContextAwareProcessor.invokeAwareInterfaces中调用的arare类已经不是普通的bean了
 		beanFactory.ignoreDependencyInterface(EnvironmentAware.class);
 		beanFactory.ignoreDependencyInterface(EmbeddedValueResolverAware.class);
 		beanFactory.ignoreDependencyInterface(ResourceLoaderAware.class);
@@ -739,7 +770,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
 		// 注意getBeanFactoryPostProcessors()是获取BeanFactoryPostProcessors实现类，注意是指没用@Component注释的，
-		// 然后手动调用ac.addBeanFactoryPostProcessor添加的
+		// 然后手动调用ac.addBeanFactoryPostProcessor添加的,这个可以看AbstractApplicationContext.beanFactoryPostProcessors的新增方法的调用
 		// 如果加了注解 直接交给spring管理 ， getBeanFactoryPostProcessors()目前是得不到的
 		// getBeanFactoryPostProcessors()返回ac.beanFactoryPostProcessors这个List， 目前是空的
 		// 这一步是相当的重要
@@ -826,6 +857,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Uses DefaultLifecycleProcessor if none defined in the context.
 	 * @see org.springframework.context.support.DefaultLifecycleProcessor
 	 */
+	//初始化lifecycleProcessor，因为需要它在ApplicationContext启动和停止时和所有声明的bean的周期做状态更新，因此在这里初始化
 	protected void initLifecycleProcessor() {
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		if (beanFactory.containsLocalBean(LIFECYCLE_PROCESSOR_BEAN_NAME)) {
@@ -865,12 +897,14 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void registerListeners() {
 		// Register statically specified listeners first.
+		//硬编码方式注册的监听器，也就是调用AbstractApplicationContext.addApplicationListener
 		for (ApplicationListener<?> listener : getApplicationListeners()) {
 			getApplicationEventMulticaster().addApplicationListener(listener);
 		}
 
 		// Do not initialize FactoryBeans here: We need to leave all regular beans
 		// uninitialized to let post-processors apply to them!
+		//配置文件注册的监听器处理
 		String[] listenerBeanNames = getBeanNamesForType(ApplicationListener.class, true, false);
 		for (String listenerBeanName : listenerBeanNames) {
 			getApplicationEventMulticaster().addApplicationListenerBean(listenerBeanName);
@@ -892,6 +926,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
 		// Initialize conversion service for this context.
+
+		// 1：conversionService的设置，
 		if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&
 				beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
 			beanFactory.setConversionService(
@@ -915,10 +951,15 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.setTempClassLoader(null);
 
 		// Allow for caching all bean definition metadata, not expecting further changes.
+
+		// 2：配置冻结，注册的bean定义将不被修改或进行进一步的处理
 		beanFactory.freezeConfiguration();
 
 		// Instantiate all remaining (non-lazy-init) singletons.
 		// 准备实例化bean对象
+		// applicationContext的默认行为就是在启动时将所有单例 bean提前进行实例化。
+		// 提前实例化意味着作为初始化过程的一部分，ApplicationContext实例会创建并配置所有的单例bean。
+		// 这样在配置中的任何错误就会即刻被发现（否则的话可能要花几个小时甚至几天）。
 		beanFactory.preInstantiateSingletons();
 	}
 
@@ -927,17 +968,26 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * onRefresh() method and publishing the
 	 * {@link org.springframework.context.event.ContextRefreshedEvent}.
 	 */
+	// Spring中还提供了Lifceycle接口，Lifeycle中包含startsop方法，实现此接口后Spring 会保证在启动的时候调用其start方法开始生命周期，
+	// 并在Spring关闭的时候调用stop方法来结束生命周期，通常用来配置后台程序，
+	// 在启动后一直运行（如对MQ进行轮询等）。而ApplcationContext 的初始化最后正是保证了这一功能的实现
 	protected void finishRefresh() {
 		// Clear context-level resource caches (such as ASM metadata from scanning).
 		clearResourceCaches();
 
 		// Initialize lifecycle processor for this context.
+
+		//初始化lifecycleProcessor，因为需要它在ApplicationContext启动和停止时和所有声明的bean的周期做状态更新
 		initLifecycleProcessor();
 
 		// Propagate refresh to lifecycle processor first.
+
+		//启动所有实现了Lifceycle接口的bean
 		getLifecycleProcessor().onRefresh();
 
 		// Publish the final event.
+
+		//发布ContextRefreshedEvent事件
 		publishEvent(new ContextRefreshedEvent(this));
 
 		// Participate in LiveBeansView MBean, if active.
